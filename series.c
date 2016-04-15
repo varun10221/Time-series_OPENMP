@@ -8,10 +8,9 @@
 bool
 allocate_series (struct Timeseries * series, int count)
 {
-   series = malloc (sizeof (struct Timseries));
    if (series == NULL)
      {
-       printf ("Error allocating memory");
+       printf ("Bad ptr");
        return false;
      }
  
@@ -38,10 +37,22 @@ copy_series (struct Timeseries *series, FILE *fp , int count)
 
 }  
 
-   
 
+float
+mean (struct Timeseries *series)
+{
+     
+  if (series == NULL) 
+     return 0;
+ 
+  int i;
+  float sum = 0.0;
+  for (i = 0; i < series->count; i++)
+    sum + = series->data[i];
 
+ return sum;
 
+}
 
 
 int
@@ -54,7 +65,19 @@ main (int argc, char **argv)
 
   fp = fopen ("close.txt","r");
   
+  series = (struct Timeseries *) malloc (sizeof (struct Timeseries));
   
+  if (!allocate_series (series, N))
+     return 0;
+ 
+  if (!copy_series (series, fp, N))
+     return 0;
+
+  printf ("success");
+
+  return 1;
+}
+    
   
 
 
