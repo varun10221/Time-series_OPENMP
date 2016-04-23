@@ -11,12 +11,17 @@ struct Timeseries
 };
 
 
+struct Autoarray
+{
+   float *auto_data;
+   int lag_count;
+};
 
 /* API's that help in time-series */
 bool copy_series (struct Timeseries *, FILE *, int);
 bool allocate_series (struct Timeseries *, int);
-float mean (struct Timeseries *, int);
-
+float mean (struct Timeseries *);
+float variance (struct Timeseries *, float mean);
  
 
 

@@ -50,9 +50,121 @@ mean (struct Timeseries *series)
   for (i = 0; i < series->count; i++)
     sum + = series->data[i];
 
- return sum;
+ return (sum/series->count);
 
 }
+
+
+float
+var_mean (float *data, int start, int end)
+{
+   if (data == NULL)
+      return 0;
+   
+   int i;
+   float sum - 0.0;
+
+   for (i = start; i <= end; i++)
+      sum += data[i];
+ 
+   return (sum / (end - start));
+
+}
+
+float
+variance (struct Timeseries *series, float mean)
+{
+  float *var;
+  
+  if (series == NULL)
+      return -1.0;
+    
+  var = malloc (sizeof (float) * series->count);
+  
+  int i;
+ 
+  for (i = 0; i < series->count; i++)
+    {
+       var[i] = (series->data[i] - mean) * (series->data[i] - mean);
+    }
+
+  float sum = 0.0;
+  for ( i = 0; i < series->count; i++)
+    {
+       sum += var[i];
+    }
+
+   return (sum / (series->count));
+
+}
+
+float *
+Autocorrelation_array_gen (struct Timeseries *series, int lag)
+{
+    struct Auto_array *array;
+
+    array = calloc (sizeof (struct Auto_array), 1);
+     
+    if (array == NULL)
+      return NULL; 
+   
+    array->auto_data = calloc (sizeof (float), lag); 
+    array->lag_count = lag; 
+
+    for (i = 0; i < lag; i++)
+      {
+        array->auto_data [i] = auto_correlate (series, i);
+        if (auto_data[i] >= ERROR_CORR)
+          return NULL;
+      }
+ 
+    return array;  
+}
+
+float
+auto_correlate (struct Timeseries *series, int lag)
+{
+   if (series == NULL || series->data == NULL)
+     return  ERROR_CORR;
+
+   int i,j;
+   i = 0;
+   j = lag;
+  
+   float mean1, mean2;
+   
+   mean1 = var_mean (series->data, 0, series->count - lag -1);
+   mean2 = var_mean (series->data, lag, series->count);
+
+   double numerator = 0.0;
+   for (i = 0; i < (series->count  - lag); i++)
+     {
+        numerator += (series->data[i] - mean1) + (series->data[i + lag]
+                                                              - mean2);
+     }
+ 
+   double d1 = 0.0;
+   double d2 = 0.0; 
+        
+   double temp1, temp2;
+
+   for (i = 0; i  < (series->count - lag); i++)
+     {
+       
+         temp1 = (series->data[i] - mean1);
+         temp2 = (series->data[i + lag] - mean2);
+         
+         d1 = d1 + (temp1 * temp1);
+         d2 = d2 + (temp2 * temp2);
+     }
+
+   double denominator = sqrt (d1) * sqrt (d2);
+
+ 
+   return (float) (numerator/ denominator);  
+} 
+
+ 
 
 
 int
