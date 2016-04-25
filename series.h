@@ -22,7 +22,8 @@ bool copy_series (struct Timeseries *, FILE *, int);
 bool allocate_series (struct Timeseries *, int);
 float mean (struct Timeseries *);
 float variance (struct Timeseries *, float mean);
- 
+float *Moving_average_filter (struct Timeseries *, int window); 
+
 
 
 

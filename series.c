@@ -33,6 +33,8 @@ copy_series (struct Timeseries *series, FILE *fp , int count)
    for ( i = 0; i < count; i++)
      fscanf (fp, "%f", &series->data[i]);
 
+   fclose (fp);
+
    return true;
 
 }  
@@ -164,6 +166,27 @@ auto_correlate (struct Timeseries *series, int lag)
    return (float) (numerator/ denominator);  
 } 
 
+float *
+Moving_average_filter (struct Timeseries *series, int window)
+{
+
+   if (series == NULL)
+      return NULL;
+
+   float *MA_data;
+   MA_data = calloc (sizeof (float), series->count);
+  
+   if (MA_data == NULL)
+     return NULL;
+
+   int i;
+   for (i = 0; i < (series->count) - window; i++)
+     {
+        MA_data[i + window] = var_mean (series->data, i, i + window);
+     }
+
+   return MA_data;
+}
  
 
 
