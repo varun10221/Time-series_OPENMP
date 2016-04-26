@@ -100,7 +100,7 @@ variance (struct Timeseries *series, float mean)
 
 }
 
-float *
+struct Auto_array *
 Autocorrelation_array_gen (struct Timeseries *series, int lag)
 {
     struct Auto_array *array;
@@ -165,6 +165,13 @@ auto_correlate (struct Timeseries *series, int lag)
  
    return (float) (numerator/ denominator);  
 } 
+
+float
+pacf (struct Timeseries *series, int lag)
+{
+
+
+}
 
 float *
 Moving_average_filter (struct Timeseries *series, int window)
