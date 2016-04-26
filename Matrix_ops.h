@@ -3,10 +3,13 @@
 
 
 float ** Matrix_Alloc (int , int );
-void Matrix_init (float **X, int m , int n);
-float ** Transpose (float **X, int m, int n);
-void Verify (float **X, float **Y, float **Z, int m);
-
- 
+void Matrix_init (float **, int , int );
+float ** Transpose (float **, int , int );
+void Verify (float **X, float **, float **, int );
+float ** Matrix_Mul (float **, float **, int, int , int);
+void print_Mat (float **, int, int);
+float determinant (float **, float);
+float ** cofactor (float **, float);
+  
 
 
