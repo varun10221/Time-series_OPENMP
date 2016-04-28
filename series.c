@@ -2,7 +2,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include "series.h"
-
+#include "Matrix_ops.h"
+#include <math.h>
 #define N 16000
 
 bool
@@ -50,7 +51,7 @@ mean (struct Timeseries *series)
   int i;
   float sum = 0.0;
   for (i = 0; i < series->count; i++)
-    sum + = series->data[i];
+    sum += series->data[i];
 
  return (sum/series->count);
 
@@ -64,7 +65,7 @@ var_mean (float *data, int start, int end)
       return 0;
    
    int i;
-   float sum - 0.0;
+   float sum = 0.0;
 
    for (i = start; i <= end; i++)
       sum += data[i];
@@ -100,12 +101,12 @@ variance (struct Timeseries *series, float mean)
 
 }
 
-struct Auto_array *
+struct Autoarray *
 Autocorrelation_array_gen (struct Timeseries *series, int lag)
 {
-    struct Auto_array *array;
+    struct Autoarray *array;
 
-    array = calloc (sizeof (struct Auto_array), 1);
+    array = calloc (sizeof (struct Autoarray), 1);
      
     if (array == NULL)
       return NULL; 
@@ -113,10 +114,11 @@ Autocorrelation_array_gen (struct Timeseries *series, int lag)
     array->auto_data = calloc (sizeof (float), lag); 
     array->lag_count = lag; 
 
+    int i;
     for (i = 0; i < lag; i++)
       {
         array->auto_data [i] = auto_correlate (series, i);
-        if (auto_data[i] >= ERROR_CORR)
+        if (array -> auto_data[i] >= ERROR_CORR)
           return NULL;
       }
  
@@ -160,18 +162,63 @@ auto_correlate (struct Timeseries *series, int lag)
          d2 = d2 + (temp2 * temp2);
      }
 
-   double denominator = sqrt (d1) * sqrt (d2);
+   double denominator = pow (d1, 0.5) * pow (d2, 0.5);
 
  
    return (float) (numerator/ denominator);  
 } 
 
-float
-pacf (struct Timeseries *series, int lag)
+float**
+pacf_array (struct Autoarray *acf, int lag)
 {
 
+  float **pacf;
+  pacf = Matrix_Alloc (lag, lag);
+ 
+  int i,j;
+  pacf [0][0] = acf->auto_data [0];
+  for (i = 1; i <= lag; i++)
+   {
+      for (j = 1; j <= i; j++)
+        {
+           pacf[i][j] = pacf_func (acf,pacf, i, j);
+        }  
+   }
+  
+   return pacf; 
 
 }
+
+
+float
+pacf_func (struct Autoarray *acf, float **pacf, int k1, int k2)
+{
+
+  float n_sum = 0.0, d_sum = 0.0;
+  int i,j;
+  if (k1 == k2)
+   {
+     for (i = 0; i < k1; i++)
+       {
+          n_sum = n_sum + (pacf[k1-1][i] * acf->auto_data [k1 - i]);
+          d_sum = d_sum + (pacf[k1 -1][i] * acf->auto_data [i]);
+       } 
+      
+     float result = (acf->auto_data [k1] - n_sum)/ (1 - d_sum);
+   
+     return result;
+
+   }
+
+
+  else {
+     float result = pacf[k1 - 1][k2] -(pacf_func (acf, pacf, k1, k1) 
+                                        * pacf[k1-1][k1-k2]);
+     return result;
+       }
+}
+
+
 
 float *
 Moving_average_filter (struct Timeseries *series, int window)
@@ -214,6 +261,10 @@ main (int argc, char **argv)
  
   if (!copy_series (series, fp, N))
      return 0;
+
+  printf ("mean :%f", mean (series));
+  printf ("\nvariance :%f",variance (series, mean (series)));
+  float **z;
 
   printf ("success");
 

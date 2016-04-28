@@ -3,6 +3,7 @@
 #include <stdbool.h>
 
 
+#define ERROR_CORR -2
 /* The time series consists of a data array and a corresponding count element */
 struct Timeseries
 {
@@ -24,8 +25,8 @@ float mean (struct Timeseries *);
 float variance (struct Timeseries *, float mean);
 float *Moving_average_filter (struct Timeseries *, int window); 
 float pacf (struct Timeseries *, int);
-
-
+float auto_correlate (struct Timeseries *, int);
+float pacf_func (struct Autoarray *, float **, int , int);
 
 
 
