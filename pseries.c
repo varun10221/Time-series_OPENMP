@@ -1,11 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include "series.h"
+#include "pseries.h"
 #include "Matrix_ops.h"
 #include <math.h>
 #include "omp.h"
+
 #define N 16000
+
+double time[10][2];
 
 bool
 allocate_series (struct Timeseries * series, int count)
@@ -23,6 +26,11 @@ allocate_series (struct Timeseries * series, int count)
 
 }
 
+double
+a (void)
+{
+  return omp_get_wtime ();
+}
 
 bool
 copy_series (struct Timeseries *series, FILE *fp , int count)
@@ -48,16 +56,17 @@ mean (struct Timeseries *series)
      
   if (series == NULL) 
      return 0;
- double start = omp_get_wtime (); 
+ 
   int i;
   float sum = 0.0;
-  for (i = 0; i < series->count; i++)
-    sum += series->data[i];
-
- double end = omp_get_wtime ();
-
- printf ("time hello:%f", end - start);
- return (sum/series->count);
+  time[0][0] = a ();
+#pragma omp parallel for reduction(+: sum)
+   for (i = 0; i < series->count; i++)
+      sum += series->data[i];
+  
+  time[0][1] = a();
+  //printf ("timehello :%f", end - start);
+  return (sum/series->count);
 
 }
 
@@ -71,6 +80,7 @@ var_mean (float *data, int start, int end)
    int i;
    float sum = 0.0;
 
+#pragma omp parallel for reduction(+: sum)
    for (i = start; i <= end; i++)
       sum += data[i];
  
@@ -89,18 +99,22 @@ variance (struct Timeseries *series, float mean)
   var = malloc (sizeof (float) * series->count);
   
   int i;
- 
+
+  time [varian][0] = a();
+#pragma omp parallel for private (i)
   for (i = 0; i < series->count; i++)
     {
        var[i] = (series->data[i] - mean) * (series->data[i] - mean);
     }
 
   float sum = 0.0;
+#pragma omp parallel for reduction(+: sum)
   for ( i = 0; i < series->count; i++)
     {
        sum += var[i];
     }
 
+   time [varian][1] = a();
    return (sum / (series->count));
 
 }
@@ -117,15 +131,16 @@ Autocorrelation_array_gen (struct Timeseries *series, int lag)
    
     array->auto_data = calloc (sizeof (float), lag); 
     array->lag_count = lag; 
-
+ 
+    time[2][0] = a ();
     int i;
+#pragma omp parallel for private (i)
     for (i = 0; i < lag; i++)
       {
         array->auto_data [i] = auto_correlate (series, i);
-        if (array -> auto_data[i] >= ERROR_CORR)
-          return NULL;
       }
  
+    time [2][1] = a();
     return array;  
 }
 
@@ -141,21 +156,26 @@ auto_correlate (struct Timeseries *series, int lag)
   
    float mean1, mean2;
    
+   time [3][0] = a ();
    mean1 = var_mean (series->data, 0, series->count - lag -1);
    mean2 = var_mean (series->data, lag, series->count);
 
    double numerator = 0.0;
+ 
+#pragma omp parallel for reduction (+: numerator)
    for (i = 0; i < (series->count  - lag); i++)
      {
-        numerator += (series->data[i] - mean1) + (series->data[i + lag]
+        numerator += (series->data[i] - mean1) * (series->data[i + lag]
                                                               - mean2);
      }
- 
+
    double d1 = 0.0;
    double d2 = 0.0; 
         
    double temp1, temp2;
 
+
+#pragma omp parallel for private (temp1, temp2) reduction (+: d1,d2)
    for (i = 0; i  < (series->count - lag); i++)
      {
        
@@ -169,6 +189,7 @@ auto_correlate (struct Timeseries *series, int lag)
    double denominator = pow (d1, 0.5) * pow (d2, 0.5);
 
  
+    time [3][1] = a();
    return (float) (numerator/ denominator);  
 } 
 
@@ -177,18 +198,30 @@ pacf_array (struct Autoarray *acf, int lag)
 {
 
   float **pacf;
-  pacf = Matrix_Alloc (lag, lag);
+  pacf = Matrix_Alloc (lag +1, lag+1);
  
   int i,j;
+  time [5][0] = a();
   pacf [0][0] = acf->auto_data [0];
   for (i = 1; i <= lag; i++)
-   {
-      for (j = 1; j <= i; j++)
+   { 
+     #pragma omp parallel
+      {
+      #pragma omp single
         {
-           pacf[i][j] = pacf_func (acf,pacf, i, j);
-        }  
+         #pragma omp task
+          {
+           for (j = 1; j <= i; j++)
+            {
+              pacf[i][j] = pacf_func (acf,pacf, i, j);
+            }
+          #pragma omp taskwait
+          }
+        }
+      }  
    }
   
+   time [5][1] = a();
    return pacf; 
 
 }
@@ -202,23 +235,36 @@ pacf_func (struct Autoarray *acf, float **pacf, int k1, int k2)
   int i,j;
   if (k1 == k2)
    {
+    time [4][0] += a();
+    #pragma omp parallel for reduction (+:n_sum,d_sum)
      for (i = 0; i < k1; i++)
        {
           n_sum = n_sum + (pacf[k1-1][i] * acf->auto_data [k1 - i]);
           d_sum = d_sum + (pacf[k1 -1][i] * acf->auto_data [i]);
        } 
-      
-     float result = (acf->auto_data [k1] - n_sum)/ (1 - d_sum);
    
+     float result;
+ 
+     if (d_sum != 1)   
+        result = (acf->auto_data [k1] - n_sum)/ (1 - d_sum);
+
+     else result = (acf->auto_data [k1] - n_sum);
+
+     time [4][1] += a();
      return result;
 
    }
 
 
   else {
-     float result = pacf[k1 - 1][k2] -(pacf_func (acf, pacf, k1, k1) 
+      float result;
+      time [6][0] += a();
+      #pragma omp task private (result)
+      result = pacf[k1 - 1][k2] -(pacf_func (acf, pacf, k1, k1) 
                                         * pacf[k1-1][k1-k2]);
-     return result;
+      #pragma omp taskwait
+      time [6][1] += a();
+      return result;
        }
 }
 
@@ -229,6 +275,7 @@ Moving_average_filter (struct Timeseries *series, int window)
 {
 
    if (series == NULL)
+
       return NULL;
 
    float *MA_data;
@@ -246,6 +293,29 @@ Moving_average_filter (struct Timeseries *series, int window)
    return MA_data;
 }
  
+
+void
+print_timearray (double k[10][2])
+{
+   double diff;
+   int i;
+   for (i = 0; i < 8; i++)
+    {
+       diff = k[i][1] - k[i][0];
+       printf(" time %d: %f \n", i, diff); 
+    }
+}
+
+
+print_array (float *a, int count)
+{
+  int i;
+  
+  for (i =0; i < count; i++)
+   {
+      printf ("autoarray [%d] %f\n",i,a[i]);
+   }
+}
 
 
 int
@@ -266,11 +336,17 @@ main (int argc, char **argv)
   if (!copy_series (series, fp, N))
      return 0;
 
+  time [7][0] = a();
   printf ("mean :%f", mean (series));
   printf ("\nvariance :%f",variance (series, mean (series)));
   float **z;
-
-  printf ("success");
+  struct Autoarray *b;
+  b = Autocorrelation_array_gen (series, 100);
+  float **pf;
+  pf = pacf_array (b, 10);
+ 
+  time [7][1] = a();
+  print_timearray (time);
 
   return 1;
 }
