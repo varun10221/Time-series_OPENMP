@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <math.h>
 #include "Matrix_ops.h"
-
+#include "pseries.h"
 
 /* Allocates a 2-d matrix with m rows and n-cols of type 'float' */
 
@@ -97,7 +97,9 @@ Matrix_Mul (float **X, float **Y, int m , int n, int q)
   Q = Matrix_Alloc (m,m);
 
   int i,j,k;
-
+#pragma omp parallel shared(Q,X,Y) private(i,j,k)
+{
+ #pragma omp for schedule (static)
    for (i=0; i<m; i++)
     {
      for (j = 0; j <n; j++)
@@ -107,6 +109,7 @@ Matrix_Mul (float **X, float **Y, int m , int n, int q)
        }
 
     }
+}
   return Q;
 
 }
@@ -127,6 +130,33 @@ print_Mat (float **X, int m, int n)
      printf ("\n");
     }
 }
+
+float **
+cholesky (float **A, int n) {
+    float **L = Matrix_Alloc (n, n);
+    if (L == NULL)
+        exit(EXIT_FAILURE);
+
+    for (int i = 0; i < n; i++)
+       {
+        for (int j = 0; j < (i+1); j++)
+           {
+            double s = 0;
+            for (int k = 0; k < j; k++)
+              {
+                s += L[i][k] * L[j][k];
+              }
+             L[i][j] = (i == j) ? sqrt(A[i][i] - s) :
+                           (1.0 / L[j][j] * (A[i][j] - s));
+            }
+       }
+    return L;
+}
+
+
+
+
+
 
 /*For calculating Determinant of the Matrix 
   Make sure the values are allocated */
