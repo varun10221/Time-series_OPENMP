@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <math.h>
 #include "Matrix_ops.h"
-
+#include "pseries.h"
 
 /* Allocates a 2-d matrix with m rows and n-cols of type 'float' */
 
@@ -30,7 +30,7 @@ Matrix_init (float **X, int m , int n)
     {
       for (j=0; j < n; j ++)
          {
-            X[i][j] = (float) (rand () % 10);
+            X[i][j] = (float) (rand () % 1000);
          }
     }
 
@@ -46,12 +46,14 @@ Transpose (float **X, int m, int n)
    float **Y;
    Y = Matrix_Alloc (m,n);
    int i,j;
+ #pragma omp parallel for shared (Y) private (i,j)
+  {
    for (i = 0; i < m; i++)
      for (j = 0; j < n; j++)
        {
           Y[i][j] = X[j][i];   
        }
-
+  }
     return Y;
 }
 
@@ -97,7 +99,10 @@ Matrix_Mul (float **X, float **Y, int m , int n, int q)
   Q = Matrix_Alloc (m,m);
 
   int i,j,k;
-
+ double start = a(); 
+#pragma omp parallel shared(Q,X,Y) private(i,j,k)
+{
+ #pragma omp for schedule (static)
    for (i=0; i<m; i++)
     {
      for (j = 0; j <n; j++)
@@ -107,6 +112,9 @@ Matrix_Mul (float **X, float **Y, int m , int n, int q)
        }
 
     }
+}
+ double end = a();
+ printf("time 9: %f", (end -start));
   return Q;
 
 }
@@ -130,31 +138,35 @@ print_Mat (float **X, int m, int n)
 
 /*For calculating Determinant of the Matrix 
   Make sure the values are allocated */
-float determinant(float **a, float k)
+float determinant(float **d, float k)
 {
   float s = 1, det = 0, **b;
   b = Matrix_Alloc (k,k);
 
   int i, j, m, n, c;
+  k = (int) k;
+  
   if (k == 1)
     {
-     return (a[0][0]);
+     return (d[0][0]);
     }
   else
     {
      det = 0;
+   {
+     {
      for (c = 0; c < k; c++)
        {
         m = 0;
         n = 0;
-        for (i = 0;i < k; i++)
+        for (i = 0; i < k; i++)
           {
-            for (j = 0 ;j < k; j++)
+            for (j = 0; j < k; j++)
               {
                 b[i][j] = 0;
                 if (i != 0 && j != c)
                  {
-                   b[m][n] = a[i][j];
+                   b[m][n] = d[i][j];
                    if (n < (k - 2))
                     n++;
                    else
@@ -165,9 +177,13 @@ float determinant(float **a, float k)
                    }
                }
             }
-          det = det + s * (a[0][c] * determinant(b, k - 1));
+          #pragma omp task firstprivate (s) shared (det)
+          det = det + s * (d[0][c] * determinant(b, k - 1));
           s = -1 * s;
+          #pragma omp taskwait
           }
+         }
+        }
     }
  
     return (det);
@@ -231,3 +247,17 @@ cofactor(float **num, float f)
   
 }
 
+float **
+inverse (float **X, int m , int y)
+{
+
+  int i,j;
+  for (i = 0; i < m; i++)
+   {
+     for (j=0; j < n; j++)
+       {
+          X[i][j] = X[i][j];
+       }
+    }
+ return X[i][j];
+}

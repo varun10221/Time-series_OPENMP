@@ -6,9 +6,10 @@
 #include <math.h>
 #include "omp.h"
 
-#define N 16000
+#define N 1600
 
 double time[10][2];
+
 
 bool
 allocate_series (struct Timeseries * series, int count)
@@ -299,7 +300,7 @@ print_timearray (double k[10][2])
 {
    double diff;
    int i;
-   for (i = 0; i < 8; i++)
+   for (i = 0; i < 10; i++)
     {
        diff = k[i][1] - k[i][0];
        printf(" time %d: %f \n", i, diff); 
@@ -344,8 +345,26 @@ main (int argc, char **argv)
   b = Autocorrelation_array_gen (series, 100);
   float **pf;
   pf = pacf_array (b, 10);
+  
+  float **A, **B;
+  A = Matrix_Alloc (N/16,N/16);
+  B = Matrix_Alloc (N/16, N/16);
+
+  Matrix_init (A, N/16, N/16);
+  Matrix_init (B, N/16, N/16);
+
+  float **C = Matrix_Mul (A, B, N/16, N/16, N/16);
+  time[9][0] = a();
+#pragma omp parallel
+{
+  #pragma omp single
+   {
+    determinant (A, (float) (N/16));
+   }
+}
+  time[9][1] = a();
  
-  time [7][1] = a();
+  time [7][1] = a(); 
   print_timearray (time);
 
   return 1;
